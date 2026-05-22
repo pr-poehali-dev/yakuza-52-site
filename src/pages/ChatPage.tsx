@@ -3,51 +3,56 @@ import { Navigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import Icon from '@/components/ui/icon';
 import { useAuth } from '@/context/AuthContext';
-import { MOCK_CHAT_ROOMS, MOCK_MESSAGES } from '@/data/mockData';
-import { Message } from '@/types/clan';
+import { chatApi, Message, ChatRoom } from '@/lib/api';
 
 export default function ChatPage() {
   const { currentUser, isAuthenticated } = useAuth();
-  const [activeRoom, setActiveRoom] = useState('general');
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const roomMessages = messages.filter((m) => m.chatId === activeRoom);
-  const currentRoom = MOCK_CHAT_ROOMS.find((r) => r.id === activeRoom);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useEffect(() => {
+    chatApi.rooms().then(({ rooms: r }) => {
+      setRooms(r);
+      if (r.length > 0) setActiveRoomId(r[0].id);
+    });
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [roomMessages.length]);
+    if (!activeRoomId) return;
+    setLoadingMsgs(true);
+    setMessages([]);
+    chatApi.messages(activeRoomId).then(({ messages: m }) => {
+      setMessages(m);
+      setLoadingMsgs(false);
+    }).catch(() => setLoadingMsgs(false));
+  }, [activeRoomId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
 
   if (!isAuthenticated || !currentUser) return <Navigate to="/login" replace />;
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
-    const newMsg: Message = {
-      id: `m${Date.now()}`,
-      senderId: currentUser.id,
-      senderNick: currentUser.nickname,
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-      chatId: activeRoom,
-    };
-    setMessages((prev) => [...prev, newMsg]);
+  const activeRoom = rooms.find((r) => r.id === activeRoomId);
+
+  const sendMessage = async () => {
+    if (!input.trim() || !activeRoomId) return;
+    const content = input.trim();
     setInput('');
+    try {
+      const { message } = await chatApi.send(activeRoomId, content);
+      setMessages((prev) => [...prev, message]);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Ошибка отправки');
+    }
   };
 
-  const formatTime = (ts: string) => {
-    const d = new Date(ts);
-    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (ts: string) => {
-    return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  };
+  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const formatDate = (ts: string) => new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 
   return (
     <Layout>
@@ -64,12 +69,12 @@ export default function ChatPage() {
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Каналы</p>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {MOCK_CHAT_ROOMS.map((room) => (
+              {rooms.map((room) => (
                 <button
                   key={room.id}
-                  onClick={() => setActiveRoom(room.id)}
+                  onClick={() => setActiveRoomId(room.id)}
                   className={`w-full text-left px-3 py-3 flex items-center gap-3 transition-all hover:bg-white/5 ${
-                    activeRoom === room.id ? 'bg-purple-600/10 border-r-2 border-purple-500' : ''
+                    activeRoomId === room.id ? 'bg-purple-600/10 border-r-2 border-purple-500' : ''
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
@@ -79,43 +84,39 @@ export default function ChatPage() {
                   }`}>
                     <Icon name={room.type === 'general' ? 'Hash' : room.type === 'tournament' ? 'Trophy' : 'Lock'} size={14} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{room.name}</p>
-                    <p className="text-xs text-muted-foreground">{room.participants.length} участников</p>
-                  </div>
-                  {room.unread > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center flex-shrink-0">
-                      {room.unread}
-                    </span>
-                  )}
+                  <p className="text-sm font-medium text-foreground truncate">{room.name}</p>
                 </button>
               ))}
+              {rooms.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-xs">Загрузка...</div>
+              )}
             </div>
           </div>
 
           {/* Chat area */}
           <div className="flex-1 card-glass rounded-xl flex flex-col overflow-hidden">
-            {/* Chat header */}
             <div className="px-5 py-3 border-b border-border flex items-center gap-3">
               <Icon name="Hash" size={18} className="text-purple-400" />
-              <div>
-                <p className="font-medium text-foreground">{currentRoom?.name}</p>
-                <p className="text-xs text-muted-foreground">{currentRoom?.participants.length} участников</p>
-              </div>
+              <p className="font-medium text-foreground">{activeRoom?.name || '...'}</p>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {roomMessages.length === 0 && (
+              {loadingMsgs && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Icon name="Loader2" size={32} className="mx-auto mb-2 animate-spin opacity-40" />
+                </div>
+              )}
+
+              {!loadingMsgs && messages.length === 0 && (
                 <div className="text-center py-16 text-muted-foreground">
                   <Icon name="MessageCircle" size={40} className="mx-auto mb-3 opacity-30" />
                   <p>Пока нет сообщений. Начни разговор!</p>
                 </div>
               )}
 
-              {roomMessages.map((msg, i) => {
+              {messages.map((msg, i) => {
                 const isOwn = msg.senderId === currentUser.id;
-                const prevMsg = roomMessages[i - 1];
+                const prevMsg = messages[i - 1];
                 const showDate = !prevMsg || formatDate(prevMsg.timestamp) !== formatDate(msg.timestamp);
                 const showSender = !prevMsg || prevMsg.senderId !== msg.senderId || showDate;
 
@@ -156,7 +157,6 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <div className="p-4 border-t border-border">
               <div className="flex gap-2">
                 <input
@@ -164,7 +164,7 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder={`Написать в ${currentRoom?.name}...`}
+                  placeholder={`Написать в ${activeRoom?.name || 'чат'}...`}
                   className="flex-1 bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-600/50 transition-colors"
                 />
                 <button

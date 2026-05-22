@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Главная', icon: 'Home' },

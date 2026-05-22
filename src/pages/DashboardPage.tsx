@@ -1,42 +1,39 @@
+import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import Icon from '@/components/ui/icon';
 import { useAuth } from '@/context/AuthContext';
-import { MOCK_TOURNAMENTS, MOCK_PLAYERS } from '@/data/mockData';
+import { tournamentsApi, playersApi, Tournament, Player } from '@/lib/api';
 
 const ROLE_LABELS: Record<string, string> = {
-  owner: 'Лидер клана',
-  admin: 'Администратор',
-  member: 'Боец',
-  recruit: 'Рекрут',
+  owner: 'Лидер клана', admin: 'Администратор', member: 'Боец', recruit: 'Рекрут',
 };
 
 export default function DashboardPage() {
   const { currentUser, isAuthenticated } = useAuth();
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+
+  useEffect(() => {
+    tournamentsApi.list().then(({ tournaments: t }) => setTournaments(t)).catch(() => {});
+    playersApi.list().then(({ players: p }) => setPlayers(p)).catch(() => {});
+  }, []);
 
   if (!isAuthenticated || !currentUser) return <Navigate to="/login" replace />;
 
-  const upcomingTournaments = MOCK_TOURNAMENTS.filter((t) => t.status === 'upcoming').slice(0, 2);
-  const clanRank = MOCK_PLAYERS.findIndex((p) => p.id === currentUser.id) + 1;
+  const upcoming = tournaments.filter(t => t.status === 'upcoming').slice(0, 2);
+  const clanRank = players.findIndex(p => p.id === currentUser.id) + 1;
   const kd = (currentUser.kills / Math.max(currentUser.deaths, 1)).toFixed(2);
   const wr = Math.round((currentUser.wins / Math.max(currentUser.wins + currentUser.losses, 1)) * 100);
 
   const quickLinks = [
-    { label: 'Мой профиль', icon: 'User', path: '/profile', color: 'purple' },
-    { label: 'Рейтинг', icon: 'BarChart3', path: '/rating', color: 'blue' },
-    { label: 'Турниры', icon: 'Trophy', path: '/tournaments', color: 'gold' },
-    { label: 'Академия', icon: 'GraduationCap', path: '/academy', color: 'green' },
-    { label: 'Чат клана', icon: 'MessageCircle', path: '/chat', color: 'purple' },
-    { label: 'Правила', icon: 'ScrollText', path: '/rules', color: 'gray' },
+    { label: 'Мой профиль', icon: 'User', path: '/profile', color: 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20' },
+    { label: 'Рейтинг', icon: 'BarChart3', path: '/rating', color: 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20' },
+    { label: 'Турниры', icon: 'Trophy', path: '/tournaments', color: 'text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20' },
+    { label: 'Академия', icon: 'GraduationCap', path: '/academy', color: 'text-green-400 bg-green-500/10 hover:bg-green-500/20' },
+    { label: 'Чат клана', icon: 'MessageCircle', path: '/chat', color: 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20' },
+    { label: 'Правила', icon: 'ScrollText', path: '/rules', color: 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20' },
   ];
-
-  const colorMap: Record<string, string> = {
-    purple: 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20',
-    blue: 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20',
-    gold: 'text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20',
-    green: 'text-green-400 bg-green-500/10 hover:bg-green-500/20',
-    gray: 'text-gray-400 bg-gray-500/10 hover:bg-gray-500/20',
-  };
 
   return (
     <Layout>
@@ -52,11 +49,15 @@ export default function DashboardPage() {
             <p className="text-purple-400 text-sm">{ROLE_LABELS[currentUser.role]} · Yakudza 52</p>
           </div>
           <div className="flex gap-3 text-center flex-shrink-0">
-            <div>
-              <p className="font-oswald font-bold text-xl text-white">#{clanRank}</p>
-              <p className="text-xs text-muted-foreground">Место</p>
-            </div>
-            <div className="w-px bg-border" />
+            {clanRank > 0 && (
+              <>
+                <div>
+                  <p className="font-oswald font-bold text-xl text-white">#{clanRank}</p>
+                  <p className="text-xs text-muted-foreground">Место</p>
+                </div>
+                <div className="w-px bg-border" />
+              </>
+            )}
             <div>
               <p className="font-oswald font-bold text-xl text-purple-300">{currentUser.points.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Очков</p>
@@ -64,7 +65,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* My stats */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Убийства', value: currentUser.kills.toLocaleString(), icon: 'Target', c: 'text-red-400' },
@@ -92,10 +93,10 @@ export default function DashboardPage() {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`card-glass rounded-xl p-4 flex items-center gap-3 transition-all hover:scale-[1.02] border border-transparent hover:border-purple-600/20`}
+                  className="card-glass rounded-xl p-4 flex items-center gap-3 transition-all hover:scale-[1.02] border border-transparent hover:border-purple-600/20"
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorMap[link.color]}`}>
-                    <Icon name={link.icon} size={18} className={colorMap[link.color].split(' ')[0]} />
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${link.color.split(' ').slice(0, 2).join(' ')}`}>
+                    <Icon name={link.icon} size={18} className={link.color.split(' ')[0]} />
                   </div>
                   <span className="text-sm font-medium text-foreground">{link.label}</span>
                 </Link>
@@ -110,32 +111,24 @@ export default function DashboardPage() {
               Ближайшие турниры
             </h2>
             <div className="space-y-3">
-              {upcomingTournaments.map((t) => (
+              {upcoming.map((t) => (
                 <div key={t.id} className="card-glass rounded-xl p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-medium text-foreground text-sm mb-1">{t.title}</h3>
                       <p className="text-xs text-muted-foreground">{t.date} · {t.time}</p>
                     </div>
-                    <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5 flex-shrink-0">
-                      Скоро
-                    </span>
+                    <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5 flex-shrink-0">Скоро</span>
                   </div>
                   <div className="flex items-center justify-between mt-3 text-xs">
-                    <span className="text-muted-foreground">
-                      <Icon name="Users" size={12} className="inline mr-1" />
-                      {t.participants}/{t.maxParticipants}
-                    </span>
-                    <Link to="/tournaments" className="text-purple-400 hover:text-purple-300">
-                      Подробнее →
-                    </Link>
+                    <span className="text-muted-foreground"><Icon name="Users" size={12} className="inline mr-1" />{t.participants}/{t.maxParticipants}</span>
+                    <Link to="/tournaments" className="text-purple-400 hover:text-purple-300">Подробнее →</Link>
                   </div>
                 </div>
               ))}
-
-              {upcomingTournaments.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  <Icon name="Calendar" size={32} className="mx-auto mb-2 opacity-30" />
+              {upcoming.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm card-glass rounded-xl">
+                  <Icon name="Calendar" size={28} className="mx-auto mb-2 opacity-30" />
                   Нет предстоящих турниров
                 </div>
               )}

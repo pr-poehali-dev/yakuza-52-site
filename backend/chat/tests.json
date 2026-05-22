@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "List chat rooms",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

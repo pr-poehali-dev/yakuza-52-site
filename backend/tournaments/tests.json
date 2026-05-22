@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "List tournaments",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -8,40 +8,30 @@ import { useAuth } from '@/context/AuthContext';
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [nickname, setNickname] = useState('');
+  const [loginVal, setLoginVal] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const ok = login(nickname, password);
-      if (ok) {
-        navigate('/dashboard');
-      } else {
-        setError('Неверный никнейм или пароль. Доступ выдаётся администраторами клана.');
-      }
-      setLoading(false);
-    }, 600);
+    const result = await login(loginVal, password);
+    if (result.ok) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error || 'Неверный логин или пароль. Доступ выдаётся администраторами клана.');
+    }
+    setLoading(false);
   };
-
-  const DEMO_ACCOUNTS = [
-    { nick: 'GhostBlade', role: 'Лидер' },
-    { nick: 'ShadowFox', role: 'Админ' },
-    { nick: 'VoidRunner', role: 'Боец' },
-    { nick: 'PhantomX', role: 'Рекрут' },
-  ];
 
   return (
     <Layout>
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center glow-purple mx-auto mb-4">
               <span className="font-oswald font-bold text-white text-xl">Y52</span>
@@ -50,19 +40,19 @@ export default function LoginPage() {
             <p className="text-muted-foreground text-sm">Доступ предоставляется администраторами</p>
           </div>
 
-          {/* Form */}
-          <div className="card-glass rounded-2xl p-6 mb-4">
+          <div className="card-glass rounded-2xl p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                  Никнейм в клане
+                  Логин
                 </label>
                 <input
                   type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Твой никнейм..."
+                  value={loginVal}
+                  onChange={(e) => setLoginVal(e.target.value)}
+                  placeholder="Твой логин..."
                   required
+                  autoComplete="username"
                   className="w-full bg-card border border-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-600/50 transition-colors"
                 />
               </div>
@@ -75,6 +65,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
                   className="w-full bg-card border border-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-600/50 transition-colors"
                 />
               </div>
@@ -88,7 +80,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                disabled={loading || !nickname}
+                disabled={loading || !loginVal || !password}
                 className="w-full bg-purple-600 hover:bg-purple-500 text-white"
               >
                 {loading ? (
@@ -98,23 +90,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-          </div>
-
-          {/* Demo accounts */}
-          <div className="card-glass rounded-xl p-4">
-            <p className="text-xs text-muted-foreground mb-3 text-center">Демо-аккаунты (пароль любой)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.nick}
-                  onClick={() => setNickname(acc.nick)}
-                  className="text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-purple-600/10 border border-transparent hover:border-purple-600/20 transition-all"
-                >
-                  <p className="text-sm font-medium text-foreground">{acc.nick}</p>
-                  <p className="text-xs text-muted-foreground">{acc.role}</p>
-                </button>
-              ))}
-            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground mt-4">
